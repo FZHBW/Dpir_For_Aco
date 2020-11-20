@@ -26,7 +26,7 @@ def Get_Data(filepath):
             print(f'统计值（最大值最小值）：{band.ComputeRasterMinMax()}')  # 有些数据本身就存储了统计信息，有些数据没有需要计算  
       #获取数据
       im_data = dataset.ReadAsArray(0,0,im_width,im_height)#将读取的数据作为numpy的Array      
-      print('Read Successfully')
+      
       return im_data
 
 def file_geoTransform(filepath):
@@ -56,10 +56,11 @@ def get_BIPImage(imgarr):
 def Write_Data(imgarr, Data_Projection, Data_GeoTransform,save_path):
       driver = gdal.GetDriverByName("GTiff")
       #基本数据信息准备
-      img_width = imgarr.shape[2]
-      img_height = imgarr.shape[1]
-      num_bands = imgarr.shape[0]
-      datatype=imgarr.GDT_Float32
+      print(imgarr.shape)
+      img_width = imgarr.shape[1]
+      img_height = imgarr.shape[0]
+      num_bands=1
+      datatype=gdal.GDT_Float32
       if 'int8' in imgarr.dtype.name:
             datatype = gdal.GDT_Byte
       elif 'int16' in imgarr.dtype.name:
@@ -70,7 +71,7 @@ def Write_Data(imgarr, Data_Projection, Data_GeoTransform,save_path):
             dataset.SetGeoTransform(Data_GeoTransform)#写入仿射变换参数
             dataset.SetProjection(Data_Projection)#写入投影参数
       for i in range(num_bands):
-            dataset.GetRasterBand(i + 1).WriteArray(imgarr[i])
+            dataset.GetRasterBand(i + 1).WriteArray(imgarr)
 
       print("Write Success")
 

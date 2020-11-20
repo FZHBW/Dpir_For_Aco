@@ -9,6 +9,7 @@ from utils import utils_logger
 from utils import utils_model
 from utils import utils_image as util
 import Tif_File_Open as tfo
+import time
 
 """
 Spyder (Python 3.7)
@@ -49,10 +50,10 @@ def main():
     # Preparation
     # ----------------------------------------
 
-    noise_level_img = 15                 # set AWGN noise level for noisy image
+    noise_level_img = 23                 # set AWGN noise level for noisy image
     noise_level_model = noise_level_img  # set noise level for model
     model_name = 'drunet_gray'           # set denoiser model, 'drunet_gray' | 'drunet_color'
-    testset_name = 'Fai'               # set test set,  'bsd68' | 'cbsd68' | 'set12'
+    testset_name = 'Fai0'               # set test set,  'bsd68' | 'cbsd68' | 'set12'
     x8 = False                           # default: False, x8 to boost performance
     show_img = False                     # default: False
     border = 0                           # shave boader to calculate PSNR and SSIM
@@ -69,7 +70,8 @@ def main():
     result_name = testset_name + '_' + task_current + '_' + model_name
 
     model_path = os.path.join(model_pool, model_name+'.pth')
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cpu')
     torch.cuda.empty_cache()
 
     # ----------------------------------------
@@ -87,7 +89,7 @@ def main():
     # ----------------------------------------
     # load model
     # ----------------------------------------
-
+    start=time.time()
     from models.network_unet import UNetRes as net
     model =  net(in_nc=n_channels+1, out_nc=n_channels, nc=[64, 128, 256, 512], nb=4, act_mode='R', downsample_mode="strideconv", upsample_mode="convtranspose")
     model.load_state_dict(torch.load(model_path), strict=True)
@@ -107,6 +109,7 @@ def main():
     logger.info(L_path)
     L_paths = util.get_image_paths(L_path)
 
+
     for idx, img in enumerate(L_paths):
 
         # ------------------------------------
@@ -124,12 +127,14 @@ def main():
             print(img_L.shape)
             util.imshow(util.single2uint(img_L), title='Noisy image with noise level {}'.format(noise_level_img)) if show_img else None    
             img_L = util.single2tensor4(img_L)
+        
         else:
-            img_L = tfo.Get_Data(img)
-            width=img_L.shape[0]
-            length=img_L.shape[1]
-            img_L=np.array([img_L])
-            img_L=img_L.reshape(width,length,1)
+            img_H=tfo.Get_Data(img)
+            width=img_H.shape[0]
+            length=img_H.shape[1]
+            img_H=np.array([img_H])
+
+            img_L=img_H.reshape(width,length,1)*100
             print(img_L.shape)
             img_L=torch.from_numpy(img_L).permute(2, 0, 1).float().unsqueeze(0)
 
@@ -162,7 +167,9 @@ def main():
         test_results['psnr'].append(psnr)
         test_results['ssim'].append(ssim)
         logger.info('{:s} - PSNR: {:.2f} dB; SSIM: {:.4f}.'.format(img_name+ext, psnr, ssim))
-
+        
+        end=time.time()
+        print(end-start)
         # ------------------------------------
         # save results
         # ------------------------------------
@@ -171,12 +178,13 @@ def main():
         else:
             transinfo=tfo.file_geoTransform(img)
             projinfo=tfo.file_geoProjection(img)
-            tfo.Write_Data(img_E, projinfo, transinfo, os.path.join(E_path, img_name+ext))
-            print("Success")
+            tfo.Write_Data(img_E, projinfo, transinfo, os.path.join(E_path, img_name+str(noise_level_img)+ext))
+            
 
     ave_psnr = sum(test_results['psnr']) / len(test_results['psnr'])
     ave_ssim = sum(test_results['ssim']) / len(test_results['ssim'])
     logger.info('Average PSNR/SSIM(RGB) - {} - PSNR: {:.2f} dB; SSIM: {:.4f}'.format(result_name, ave_psnr, ave_ssim))
+    print(noise_level_img)
 
 
 if __name__ == '__main__':
