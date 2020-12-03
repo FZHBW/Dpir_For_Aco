@@ -2,6 +2,9 @@ import os
 import math as m
 import numpy as np
 from osgeo import gdal
+from astropy.stats import SigmaClip
+from photutils import Background2D, MedianBackground
+import scipy
 import linecache
 
 projection = [
@@ -75,5 +78,12 @@ def Write_Data(imgarr, Data_Projection, Data_GeoTransform,save_path):
 
       print("Write Success")
 
+def gray2rgb(data):
+      return np.array([data,data,data])
 
-
+def DBnoise(Data):
+      sigma_clip = SigmaClip(sigma=3.)
+      bkg_estimator = MedianBackground()
+      bkg = Background2D(Data, (50, 50), filter_size=(3, 3), sigma_clip=sigma_clip, bkg_estimator=bkg_estimator)
+      print(bkg.background_median)
+      return bkg

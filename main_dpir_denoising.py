@@ -9,6 +9,7 @@ from utils import utils_logger
 from utils import utils_model
 from utils import utils_image as util
 import Tif_File_Open as tfo
+import cv2
 import time
 
 """
@@ -50,10 +51,10 @@ def main():
     # Preparation
     # ----------------------------------------
 
-    noise_level_img = 23                 # set AWGN noise level for noisy image
+    noise_level_img = 50                 # set AWGN noise level for noisy image
     noise_level_model = noise_level_img  # set noise level for model
     model_name = 'drunet_gray'           # set denoiser model, 'drunet_gray' | 'drunet_color'
-    testset_name = 'Fai0'               # set test set,  'bsd68' | 'cbsd68' | 'set12'
+    testset_name = 'Fai'               # set test set,  'bsd68' | 'cbsd68' | 'set12'
     x8 = False                           # default: False, x8 to boost performance
     show_img = False                     # default: False
     border = 0                           # shave boader to calculate PSNR and SSIM
@@ -70,8 +71,9 @@ def main():
     result_name = testset_name + '_' + task_current + '_' + model_name
 
     model_path = os.path.join(model_pool, model_name+'.pth')
-    #device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    device = torch.device('cpu')
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #device = torch.device('cpu')
     torch.cuda.empty_cache()
 
     # ----------------------------------------
@@ -120,9 +122,8 @@ def main():
         # logger.info('{:->4d}--> {:>10s}'.format(idx+1, img_name+ext))
         if ext !='.tif':
             img_H = util.imread_uint(img, n_channels=n_channels)
-            img_L = util.uint2single(img_H)
-                # Add noise without clipping
-            np.random.seed(seed=0)  # for reproducibility
+            img_L = util.uint2single(img_H)# Add noise without clipping
+            np.random.seed(seed=0)# for reproducibility
             img_L += np.random.normal(0, noise_level_img/255., img_L.shape)
             print(img_L.shape)
             util.imshow(util.single2uint(img_L), title='Noisy image with noise level {}'.format(noise_level_img)) if show_img else None    
@@ -132,9 +133,11 @@ def main():
             img_H=tfo.Get_Data(img)
             width=img_H.shape[0]
             length=img_H.shape[1]
+            bkg=tfo.DBnoise(img_H)
+            img_H=img_H-bkg.background
+            
             img_H=np.array([img_H])
-
-            img_L=img_H.reshape(width,length,1)*100
+            img_L=img_H.reshape(width,length,1)*100 
             print(img_L.shape)
             img_L=torch.from_numpy(img_L).permute(2, 0, 1).float().unsqueeze(0)
 
